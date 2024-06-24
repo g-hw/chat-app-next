@@ -1,40 +1,61 @@
+"use client"
+
+import Bottombar from "@/components/BottomBar"
 import Sidebar from "@/components/Sidebar"
+import Topbar from "@/components/Topbar"
+import { auth, db } from "@/firebaseconfig"
+import getOtherEmail from "@/utils/getOtherEmail"
+import { Flex, Text } from "@chakra-ui/react"
+import { collection, doc, orderBy, query } from "firebase/firestore"
+import { useEffect, useRef } from "react"
+import { useAuthState } from "react-firebase-hooks/auth"
 import {
-  Avatar,
-  Button,
-  Flex,
-  FormControl,
-  Heading,
-  Input,
-  Text,
-} from "@chakra-ui/react"
+  useCollectionData,
+  useDocumentData,
+} from "react-firebase-hooks/firestore"
 
-const Topbar = () => {
-  return (
-    <Flex bg="gray.100" h="81px" w="100%" align="center" p={5}>
-      <Avatar src="" marginEnd={3} />
-      <Heading size="lg">user@gmail.com</Heading>
-    </Flex>
-  )
-}
+export default function Chat({ params }) {
+  const { id } = params
+  const q = query(collection(db, `chats/${id}/messages`), orderBy("timestamp"))
+  const [messages] = useCollectionData(q)
+  const [user] = useAuthState(auth)
+  const [chat] = useDocumentData(doc(db, "chats", id))
+  const bottomOfChat = useRef(null)
 
-const Bottombar = () => {
-  return (
-    <FormControl p={3}>
-      <Input placeholder="Type a message..." autoComplete="off" />
-      <Button type="submit" hidden>
-        Submit
-      </Button>
-    </FormControl>
-  )
-}
+  const getMessages = () =>
+    messages?.map((msg) => {
+      const sender = msg.sender === user?.email
+      return (
+        <Flex
+          bg={sender ? "blue.100" : "green.100"}
+          w="fit-content"
+          minWidth="100px"
+          borderRadius="lg"
+          alignSelf={sender ? "flex-start" : "flex-end"}
+          p={3}
+          m={1}
+          key={Math.random()}
+        >
+          <Text>{msg.text}</Text>
+        </Flex>
+      )
+    })
 
-export default function Chat() {
+  useEffect(() => {
+    setTimeout(
+      bottomOfChat.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      }),
+      100
+    )
+  }, [messages])
+
   return (
     <Flex h="100vh">
       <Sidebar />
       <Flex flex={1} direction="column">
-        <Topbar />
+        <Topbar email={getOtherEmail(chat?.users, user)} />
         <Flex
           flex={1}
           direction="column"
@@ -43,39 +64,10 @@ export default function Chat() {
           overflowX="scroll"
           sx={{ scrollbarWidth: "none" }}
         >
-          <Flex
-            bg="blue.100"
-            w="fit-content"
-            minWidth="100px"
-            borderRadius="lg"
-            p={3}
-            m={1}
-          >
-            <Text>This is a dummy message</Text>
-          </Flex>
-          <Flex
-            bg="blue.100"
-            w="fit-content"
-            minWidth="100px"
-            borderRadius="lg"
-            p={3}
-            m={1}
-          >
-            <Text>This is a dummy message</Text>
-          </Flex>
-          <Flex
-            bg="green.100"
-            w="fit-content"
-            minWidth="100px"
-            borderRadius="lg"
-            p={3}
-            m={1}
-            alignSelf="flex-end"
-          >
-            <Text>This is a dummy message</Text>
-          </Flex>
+          {getMessages()}
+          <div ref={bottomOfChat}></div>
         </Flex>
-        <Bottombar />
+        <Bottombar id={id} user={user} />
       </Flex>
     </Flex>
   )
